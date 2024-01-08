@@ -25,7 +25,7 @@ public class ReviewsIntgTest {
     @Autowired
     ReviewReactorRepository reviewReactorRepository;
 
-    static final String REVIEWS_URL = "/v1/reviews";
+    static final String REVIEWS_URI = "/v1/reviews";
 
     @BeforeEach
     void setUp() {
@@ -45,7 +45,7 @@ public class ReviewsIntgTest {
     @Test
     void findAll() {
         webTestClient.get()
-                .uri(REVIEWS_URL)
+                .uri(REVIEWS_URI)
                 .exchange()
                 .expectStatus()
                 .is2xxSuccessful()
@@ -56,7 +56,7 @@ public class ReviewsIntgTest {
     @Test
     void findReviewsByMovieInfoId() {
         webTestClient.get()
-                .uri(REVIEWS_URL + "/21")
+                .uri(REVIEWS_URI + "/21")
                 .exchange()
                 .expectStatus()
                 .is2xxSuccessful()
@@ -65,10 +65,19 @@ public class ReviewsIntgTest {
     }
 
     @Test
+    void findNonExistentReviewByMovieInfoId() {
+        webTestClient.get()
+                .uri(REVIEWS_URI + "/99")
+                .exchange()
+                .expectStatus()
+                .isNotFound();
+    }
+
+    @Test
     void addReview() {
         Review review = new Review("123", 456L, "yo", 2.9);
         webTestClient.post()
-                .uri(REVIEWS_URL)
+                .uri(REVIEWS_URI)
                 .bodyValue(review)
                 .exchange()
                 .expectStatus()
@@ -84,7 +93,7 @@ public class ReviewsIntgTest {
     void updateReview() {
         Review updatedReview = new Review(null, 10L, "Spectacular Movie", null);
         webTestClient.put()
-                .uri(REVIEWS_URL + "/abc")
+                .uri(REVIEWS_URI + "/abc")
                 .bodyValue(updatedReview)
                 .exchange()
                 .expectStatus()
@@ -101,9 +110,20 @@ public class ReviewsIntgTest {
     }
 
     @Test
+    void updateNonExistentReview() {
+        Review review = new Review("99", 2L, "test", 2.2);
+
+        webTestClient.put()
+                .bodyValue(review)
+                .exchange()
+                .expectStatus()
+                .isNotFound();
+    }
+
+    @Test
     void deleteById() {
         webTestClient.delete()
-                .uri(REVIEWS_URL + "/abc")
+                .uri(REVIEWS_URI + "/abc")
                 .exchange()
                 .expectStatus()
                 .isNoContent();
