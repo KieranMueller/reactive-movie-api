@@ -3,11 +3,17 @@ package com.reactivespring.client;
 import com.reactivespring.domain.MovieInfo;
 import com.reactivespring.exception.MoviesInfoClientException;
 import com.reactivespring.exception.MoviesInfoServerException;
+import com.reactivespring.util.RetryUtil;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
+import reactor.util.retry.RetryBackoffSpec;
+
+import java.time.Duration;
 
 @Component
 public class MoviesInfoRestClient {
@@ -22,7 +28,15 @@ public class MoviesInfoRestClient {
     }
 
     public Mono<MovieInfo> getMovieInfo(String movieId) {
+
         String url = moviesInfoUrl.concat("/{id}");
+
+        // Put retry into variable to propagate original error message to the caller,
+        // put into util class but kept here for ease of understanding
+        RetryBackoffSpec retrySpec = Retry.backoff(3, Duration.ofMillis(300))
+                .filter(e -> e instanceof MoviesInfoServerException)
+                .onRetryExhaustedThrow((retryBackoffSpec, retrySignal) -> Exceptions.propagate(retrySignal.failure()));
+
         return webClient
                 .get()
                 .uri(url, movieId)
@@ -42,9 +56,11 @@ public class MoviesInfoRestClient {
                 })
                 .onStatus(HttpStatus::is5xxServerError, clientResponse -> clientResponse.bodyToMono(String.class)
                         .flatMap(responseMessage -> Mono.error(
-                                new MoviesInfoServerException("Error connecting to MoviesInfoService " + responseMessage)
+                                new MoviesInfoServerException("Error connecting to MoviesInfoService: " + responseMessage)
                         )))
                 .bodyToMono(MovieInfo.class)
+//                .retry(3)
+                .retryWhen(RetryUtil.retryBackoffSpec())
                 .log();
     }
 }
